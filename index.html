@@ -308,7 +308,7 @@ const ROBOT = {
   ns: 'max:',                                    // префикс памяти браузера — СВОЙ у каждого пульта (домен GitHub Pages общий)
   agent: 'agent_8801m320fpf0f20t8qr66h9s0hy7',  // мозг Максимилиана (deploy_robot.py --robot maximilian)
   title: 'Максимилиан · Вена',
-  version: '21.09.2026 (первый выход)',
+  version: '21.09.2026 громкость+тихо',
   dayCtx: 'Montag, 21. September 2026, Wien, Innenstadt. Du gehst zu Fuß unter den Leuten, dein erster Gang seit langer Zeit. Kein Gastgeber, kein Auftrag — du siehst dir an, was aus dem Jahrhundert geworden ist.',
 
   // Режимы вечера — стоячий контекст: уходит роботу при подключении и по нажатию
@@ -350,6 +350,25 @@ const LS={ get:k=>localStorage.getItem(k==='xiKey'?k:NS+k),
 import { Conversation } from 'https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.18.0/+esm';
 
 const $ = id => document.getElementById(id);
+
+// ГРОМКОСТЬ. conv.setVolume выше единицы не поднимается — это обычная громкость
+// аудио-элемента. Тихий голос на улице не слышно, поэтому выход робота
+// пропускается через усилитель WebAudio. 21.09: голос Jantosch «очень тихий».
+let _gain=null, _ac=null;
+const USILENIE = 3.0;               // во сколько раз громче единицы
+function usilitZvuk(){
+  try{
+    const el=[...document.querySelectorAll('audio')].find(a=>a.srcObject||a.src);
+    if(!el || el._usilen) return;
+    _ac = _ac || new (window.AudioContext||window.webkitAudioContext)();
+    const ist = el.srcObject ? _ac.createMediaStreamSource(el.srcObject) : _ac.createMediaElementSource(el);
+    _gain = _ac.createGain(); _gain.gain.value = USILENIE;
+    ist.connect(_gain); _gain.connect(_ac.destination);
+    el._usilen = true;
+    if(el.srcObject) el.muted = true;   // иначе звук пойдёт дважды: сырой и усиленный
+    log('🔊 Усилитель включён: громче в '+USILENIE+' раза');
+  }catch(e){ log('⚠️ Усилитель не включился: '+(e?.message||e)); }
+}
 const TAIL_MS = 350;      // "хвост" после речи робота (было 700 — гость успевал
                           // начать фразу в ещё закрытый микрофон, 26.08)
 const TOGGLE_TIMEOUT = 15000; // авто-выкл микрофона в toggle-режиме
@@ -822,7 +841,25 @@ $('hushBtn2')?.addEventListener('click', ()=>{ vibrate([90,60,90]); hush(); });
   // Длинное нажатие на телефоне ненадёжно: браузер перехватывает его своим
   // меню выделения и до страницы оно не доходит (поймано Максом 23.08).
   // Поэтому полный обрыв — отдельной видимой кнопкой, а тут простой клик.
-  b.addEventListener('click', e=>{ e.preventDefault(); korotko(); });
+  // 21.09: ХВАТИТ — ПЕРЕКЛЮЧАТЕЛЬ. Раньше он только глушил, а выйти из тишины
+  // было нечем: кнопка «ТИХО» спрятана, а ГОВОРИТЬ в режиме свободных рук
+  // молчания не снимала — экран выглядел мёртвым. Теперь второе нажатие
+  // возвращает слух и звук.
+  function obratno(){
+    setQuiet(false);
+    try{ conv?.setVolume({volume:1}); }catch{}
+    vibrate(40);
+    log('🔊 Снова слушает — ХВАТИТ отжат');
+  }
+  b.addEventListener('click', e=>{ e.preventDefault(); if(quiet) obratno(); else korotko(); });
+  // надпись на кнопке всегда говорит, что будет по нажатию
+  window._hvatitUI = () => {
+    b.innerHTML = quiet
+      ? '🔊 ПРОДОЛЖИТЬ<br><small>сейчас молчит — нажми, чтобы снова слушал</small>'
+      : '✋ ХВАТИТ<br><small>замолчи сейчас · связь жива, нажми ещё раз — снова слушает</small>';
+    b.style.background = quiet ? '#2e7d32' : '#8e2020';
+  };
+  window._hvatitUI();
 })();
 
 // Держим звук выключенным, пока агент не замолчит: проверяем каждые 300 мс,
@@ -1011,6 +1048,8 @@ async function doConnect(isReconnect){
     }
     iosKick();          // пинок маршрута — ТОЛЬКО после захвата, иначе 50/50
     levelStart();
+    // усилитель цепляем, когда SDK уже создал свой аудио-элемент
+    setTimeout(usilitZvuk, 800); setTimeout(usilitZvuk, 2500);
     clearTimeout(reconnectTimer); reconnectTimer=null;   // висящий таймер добил бы живую сессию
     try{ conv.setVolume({volume:1}); }catch{}   // страховка: СТОП глушил в ноль
     reconnectTries=0;   // связь восстановилась — счётчик попыток сбрасываем
@@ -1143,6 +1182,9 @@ ptt.addEventListener('pointerdown',e=>{
     else { if(quiet) setQuiet(false); setWanted(true); }
     return;
   }
+  // 21.09: в режиме «руки свободны» тишину тоже надо снимать, иначе микрофон
+  // не откроется и кнопка выглядит сломанной.
+  if(quiet){ setQuiet(false); try{ conv?.setVolume({volume:1}); }catch{} setWanted(true); return; }
   setWanted(!micWanted);
 });
 ptt.addEventListener('pointerup',e=>{ e.preventDefault(); if(isHold()) setWanted(false); });
@@ -1229,6 +1271,7 @@ function quietUI(){
 function setQuiet(v){
   quiet=v; vibrate(v?[60,40,60]:40);
   quietUI();
+  try{ window._hvatitUI?.(); }catch{}
   if(v){ micWanted=false; }
   else { micWanted = (micMode()==='open'); }
   applyMic();
