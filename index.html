@@ -308,7 +308,7 @@ const ROBOT = {
   ns: 'max:',                                    // префикс памяти браузера — СВОЙ у каждого пульта (домен GitHub Pages общий)
   agent: 'agent_8801m320fpf0f20t8qr66h9s0hy7',  // мозг Максимилиана (deploy_robot.py --robot maximilian)
   title: 'Максимилиан · Вена',
-  version: '22.09.2026 короче и резвее',
+  version: '22.09.2026 голос Rupert',
   dayCtx: 'Montag, 21. September 2026, Wien, Innenstadt. Du gehst zu Fuß unter den Leuten, dein erster Gang seit langer Zeit. Kein Gastgeber, kein Auftrag — du siehst dir an, was aus dem Jahrhundert geworden ist.',
 
   // Режимы вечера — стоячий контекст: уходит роботу при подключении и по нажатию
@@ -354,20 +354,38 @@ const $ = id => document.getElementById(id);
 // ГРОМКОСТЬ. conv.setVolume выше единицы не поднимается — это обычная громкость
 // аудио-элемента. Тихий голос на улице не слышно, поэтому выход робота
 // пропускается через усилитель WebAudio. 21.09: голос Jantosch «очень тихий».
-let _gain=null, _ac=null;
+let _gain=null, _ac=null, _ist=null;
 const USILENIE = 3.0;               // во сколько раз громче единицы
 function usilitZvuk(){
+  let el=null;
   try{
-    const el=[...document.querySelectorAll('audio')].find(a=>a.srcObject||a.src);
-    if(!el || el._usilen) return;
+    el=[...document.querySelectorAll('audio')].find(a=>a.srcObject||a.src);
+    if(!el) return;
+    // 22.09: после ПЕРЕПОДКЛЮЧЕНИЯ у того же элемента новый поток. Раньше стоял
+    // флаг «уже усилен» — цепочка к новому потоку не строилась, а элемент
+    // оставался заглушённым, и звук пропадал совсем. Теперь помним сам поток.
+    const kluch = el.srcObject || el.src;
+    if(el._usilenKluch === kluch) return;
     _ac = _ac || new (window.AudioContext||window.webkitAudioContext)();
-    const ist = el.srcObject ? _ac.createMediaStreamSource(el.srcObject) : _ac.createMediaElementSource(el);
+    if(_ac.state === 'suspended'){ try{ _ac.resume(); }catch{} }
+    try{ _ist?.disconnect(); }catch{}
+    try{ _gain?.disconnect(); }catch{}
+    if(el.srcObject){
+      _ist = _ac.createMediaStreamSource(el.srcObject);
+    } else {
+      if(el._istSozdan) return;            // createMediaElementSource можно звать один раз
+      _ist = _ac.createMediaElementSource(el); el._istSozdan = true;
+    }
     _gain = _ac.createGain(); _gain.gain.value = USILENIE;
-    ist.connect(_gain); _gain.connect(_ac.destination);
-    el._usilen = true;
-    if(el.srcObject) el.muted = true;   // иначе звук пойдёт дважды: сырой и усиленный
+    _ist.connect(_gain); _gain.connect(_ac.destination);
+    el._usilenKluch = kluch;
+    if(el.srcObject) el.muted = true;      // иначе звук пойдёт дважды
     log('🔊 Усилитель включён: громче в '+USILENIE+' раза');
-  }catch(e){ log('⚠️ Усилитель не включился: '+(e?.message||e)); }
+  }catch(e){
+    // ГЛАВНОЕ: не оставить робота немым. Не вышло усилить — вернуть обычный звук.
+    try{ if(el){ el.muted=false; el._usilenKluch=null; } }catch{}
+    log('⚠️ Усилитель не включился, звук обычный: '+(e?.message||e));
+  }
 }
 const TAIL_MS = 350;      // "хвост" после речи робота (было 700 — гость успевал
                           // начать фразу в ещё закрытый микрофон, 26.08)
