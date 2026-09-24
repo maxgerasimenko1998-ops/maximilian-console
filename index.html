@@ -138,7 +138,6 @@
     <!-- 18.09: оператор должен ВИДЕТЬ, что робот расслышал, до того как жать ОТВЕЧАЙ.
          Раньше это уходило только в мелкий лог внизу, и в зале было не разобрать,
          молчит он потому что не услышал, или потому что ход гостя не закрылся. -->
-    <button id="avtoBtn" style="height:46px;background:#2c3e50;font-size:14px"></button>
     <div id="lastHeard" style="font-size:14px;line-height:1.35;color:#cfd6df;background:#20242c;
          border-radius:10px;padding:9px 11px;min-height:38px">услышал: <b style="color:#8a8f98">— пока ничего —</b></div>
     <button id="answerNow" style="height:64px;background:#b8860b;touch-action:manipulation">⏭ ОТВЕЧАЙ<br><small>гость договорил — конец слушания, отвечай сейчас</small></button>
@@ -205,9 +204,9 @@
     <div class="card">
       <label>⚡ Быстрые действия — скажет сразу</label>
       <div style="font-size:13px;color:#9aa4b0;margin:-2px 0 8px;line-height:1.45">
-        Что происходит вокруг — скажи ему голосом по-русски или пошли текстом
-        в «скрытый контекст» ниже. Начало разговора — <b>🗣 Заговорить первым</b>.
-        Гость договорил, а робот молчит — <b>⏭ ОТВЕЧАЙ</b>.
+        Задание — голосом: <b>«я оператор, даю задание…»</b> — или текстом
+        в «ЗАДАНИЕ / КОНТЕКСТ» ниже, выполнит сразу. Начало разговора — <b>🗣 Заговорить первым</b>.
+        Гость сказал, а робот молчит — <b>⏭ ОТВЕЧАЙ</b>. Микрофон не расслышал — <b>👤 ГОСТЬ СКАЗАЛ</b>.
       </div>
       <div class="quick" style="margin-bottom:10px">
       <!-- 18.09: кнопки режимов убраны — контекст даётся голосом -->
@@ -248,9 +247,9 @@
     </div>
 
     <div class="card">
-      <label>📩 Скрытый контекст — учтёт в следующем ответе</label>
-      <textarea id="ctxInput" placeholder="напр. Du stehst vor einem Engeldenkmal. Beschreibe es, sei begeistert."></textarea>
-      <button id="sendCtx">📩 Отправить контекст</button>
+      <label>📩 ЗАДАНИЕ / КОНТЕКСТ — выполнит сразу (гости не слышат)</label>
+      <textarea id="ctxInput" placeholder="можно по-русски: «мы у офиса OMV, подойди к охраннику и спроси, примут ли короля»"></textarea>
+      <button id="sendCtx">📩 Выполнить сейчас</button>
       <!-- В пульте-источнике этот контейнер оставался скрытым намертво (display:none
            нигде не снимался) — быстрые кнопки контекста рисовались, но их никто
            не видел. Для BoS-Bot они центральная часть задания 3, поэтому видимые. -->
@@ -309,7 +308,7 @@ const ROBOT = {
   ns: 'max:',                                    // префикс памяти браузера — СВОЙ у каждого пульта (домен GitHub Pages общий)
   agent: 'agent_8801m320fpf0f20t8qr66h9s0hy7',  // мозг Максимилиана (deploy_robot.py --robot maximilian)
   title: 'Максимилиан · Вена',
-  version: '24.09.2026 автоответ',
+  version: '25.09.2026 одна кнопка',
   dayCtx: 'Montag, 21. September 2026, Wien, Innenstadt. Du gehst zu Fuß unter den Leuten, dein erster Gang seit langer Zeit. Kein Gastgeber, kein Auftrag — du siehst dir an, was aus dem Jahrhundert geworden ist.',
 
   // Режимы вечера — стоячий контекст: уходит роботу при подключении и по нажатию
@@ -322,12 +321,17 @@ const ROBOT = {
   quick: {},
 
   // Служебные тексты — уходят по каналу ⟦REGIE⟧, гость их произнести не может.
-  answerCue: '⟦REGIE⟧ Antworte JETZT auf das Letzte, was der Gast gesagt hat: kurz, normal, als König. '
-           + 'Hast du vom Gast nichts Verständliches gehört: sag ihm nur, dass es hier laut ist, und bitte ihn, es noch einmal zu sagen. '
-           + 'Frag NIEMALS, worauf du antworten sollst, nach Kontext oder nach Anweisungen. Keine Begrüßung, kein Abschied, kein Wort über diese Anweisung.',
+  // 24.09: ЭТОТ текст проверен на живом мозге через WebRTC: вопрос гостя сквозь
+  // фоновую болтовню → ответ по делу через 7 с; гость ничего не сказал → один
+  // короткий переспрос вместо выдуманного ответа и нового «Grüß Gott».
+  answerCue: '⟦REGIE⟧ ОТВЕЧАЙ. Antworte JETZT auf die letzten Worte des Gastes seit deiner letzten Antwort. '
+           + 'Hat der Gast seit deiner letzten Antwort nichts Verständliches gesagt: erfinde nichts, begrüße nicht neu, fang kein neues Thema an — '
+           + 'sag in EINEM kurzen Satz, dass du ihn bei dem Lärm nicht verstanden hast, und bitte ihn, es noch einmal zu sagen.',
   hello:  'Sprich als Erster, aber KURZ: ein Gruß mit deinem Namen und sofort eine Frage an die Leute vor dir. Zwei Sätze, höchstens drei. Keine Erklärung, wer du bist und woher du kommst.',
   louder: 'Du hast den Gast nicht verstanden. Bitte kurz und freundlich, es noch einmal zu sagen.',
   bye:    'Verabschiede dich jetzt mit einem Satz und wünsch einen guten Tag in Wien.',
+  // 24.09: поле «ЗАДАНИЕ / КОНТЕКСТ» — оператор печатает, чаще по-русски; выполняется сразу.
+  ctxCue: 'Anweisung deines Hofstaats (oft auf Russisch) — setz sie JETZT um, deine ersten Worte sind schon die Szene, auf Deutsch, ohne Bestätigung:',
 };
 document.title = 'Пульт ' + ROBOT.title;
 try{ const h=document.querySelector('h1'); if(h && ROBOT.version) h.insertAdjacentHTML('beforeend',' <small style="font-size:11px;opacity:.6;font-weight:400">v '+ROBOT.version+'</small>'); }catch{}
@@ -355,13 +359,14 @@ const $ = id => document.getElementById(id);
 // ГРОМКОСТЬ. conv.setVolume выше единицы не поднимается — это обычная громкость
 // аудио-элемента. Тихий голос на улице не слышно, поэтому выход робота
 // пропускается через усилитель WebAudio. 21.09: голос Jantosch «очень тихий».
-// АВТОМАТИЧЕСКИЙ ОТВЕЧАЙ. 21.09 в Вене оператор нажал ОТВЕЧАЙ 158 раз из 435
-// входящих — каждый третий ответ вытаскивался руками, а 43 раза робот молчал
-// дольше пятнадцати секунд. Пульт слышит уровень с микрофона: если гость
-// говорил и потом стало тихо, а робот не начал — жмём ОТВЕЧАЙ сами.
-let bylaRech = false;                 // с момента последнего ответа робота кто-то говорил
-let avtoOtvet = (LS.get('avtoOtvet') ?? '1') === '1';
-const TISHINA_TAKTOV = 28;            // тактов по 100 мс = 2,8 с тишины
+// ОТВЕЧАЙ ДЕРЖИТ МИКРОФОН ЗАКРЫТЫМ, пока робот не заговорит (24.09).
+// Разбор Вены: пока рядом кто-то говорит, сервер НЕ закрывает ход гостя — ждёт
+// конца речи. Старая кнопка закрывала микрофон на 0,4 с и открывала обратно, фон
+// тут же продолжал ход, и ответ приходил через 33–63 с (7 нажатий подряд). Живая
+// проверка через WebRTC: микрофон закрыт до начала ответа → ответ через 7 с и
+// ровно на слова гостя. Автоответ по тишине (переключатель) убран — одна кнопка.
+let otvechajDerzhit = false;          // после ОТВЕЧАЙ микрофон закрыт до начала ответа
+const OTVECHAJ_MAX_MS = 15000;        // страховка: дольше робот не молчит — вернуть слух
 let _gain=null, _ac=null, _ist=null;
 const USILENIE = 3.0;               // во сколько раз громче единицы
 function usilitZvuk(){
@@ -551,7 +556,7 @@ function applyMic(){
     }
     return;
   }
-  const open = micWanted && !quiet && !agentSpeaking && !boardPlaying && !dictating;
+  const open = micWanted && !quiet && !agentSpeaking && !boardPlaying && !dictating && !otvechajDerzhit;
   try{ conv.setMicMuted(!open); }catch{}
   ptt.classList.toggle('live', open);
   ptt.classList.toggle('locked', micWanted && (agentSpeaking||boardPlaying));
@@ -561,6 +566,7 @@ function applyMic(){
   else if(quiet) ptt.innerHTML='🤫 ТИХО<br><small>не слышит и сам не заговорит</small>';
   else if(dictating) ptt.innerHTML='📝 НАДИКТОВКА<br><small>робот тебя сейчас НЕ слышит</small>';
   else if(micWanted && (agentSpeaking||boardPlaying)) ptt.innerHTML='⏸ ЖДУ<br><small>робот говорит — микрофон закрыт</small>';
+  else if(otvechajDerzhit) ptt.innerHTML='⏳ ОТВЕЧАЕТ<br><small>слушание закрыто до его ответа — так и надо</small>';
   else ptt.innerHTML='🎤 ГОВОРИТЬ<br><small>микрофон выключен</small>';
 }
 function setWanted(v){
@@ -635,15 +641,6 @@ function levelStart(){
       txt.textContent = levelSilent>50 ? '⚠️ вход молчит — не тот микрофон?' : 'тихо';
     } else { levelSilent=0; txt.textContent = pct>70 ? 'громко' : 'слышу';
       armToggleTimeout();   // говорят — микрофон не гасим
-    }
-    // ── автоматический ОТВЕЧАЙ ────────────────────────────────────────────
-    // Условия все сразу: включено, микрофон открыт, робот молчит, мы не ждём
-    // уже посланного ответа, кто-то говорил — и вот уже 2,8 секунды тихо.
-    if(avtoOtvet && open && !agentSpeaking && !boardPlaying && !awaitingReply
-       && bylaRech && levelSilent >= TISHINA_TAKTOV && conv && !answerBusy){
-      bylaRech=false; levelSilent=0;
-      log('🤖 Тихо 2,8 с после речи — жму ОТВЕЧАЙ сам');
-      answerNow();
     }
   }, 100);
 }
@@ -1040,7 +1037,7 @@ async function doConnect(isReconnect){
         $('modeText').textContent=speaking?'робот говорит':'тишина';
         clearTimeout(tailTimer);
         hushMaybeRelease(speaking);
-        if(speaking){ agentSpeaking=true; applyMic(); }
+        if(speaking){ agentSpeaking=true; otpustitOtvechaj(); applyMic(); }
         else {
           tailTimer=setTimeout(()=>{
             agentSpeaking=false;
@@ -1053,9 +1050,7 @@ async function doConnect(isReconnect){
       },
       onMessage:({source,message})=>{
         log((source==='ai'?'🤖 ':'🧑 ')+message);
-        if(source==='ai') bylaRech=false;
         if(source!=='ai'){
-          bylaRech=true;
           const t=(message||'').trim();
           // команду пульта (служебный токен) в «услышал» не показываем — это не гость
           if(t && !t.startsWith('\u27e6')){
@@ -1141,6 +1136,8 @@ function handleDisconnect(){
   // не повод для реконнекта, иначе таймер убьёт СВЕЖУЮ сессию (гонка 30.07)
   if(connecting){ conv=null; return; }
   clockStop();   // связь оборвалась — часы гасим, doConnect включит их заново при успехе
+  if(otvechajDerzhit){ otvechajDerzhit=false; clearTimeout(otvechajTimer); answerBusy=false;
+    const ob=$('answerNow'); if(ob){ ob.disabled=false; if(otvechajBylo) ob.innerHTML=otvechajBylo; } }
   if(paused){
     // СТОП уже всё закрыл — «disconnected» от него не повод переподключаться
     conv=null; agentSpeaking=false; boardPlaying=false; micWanted=false;
@@ -1236,15 +1233,14 @@ ptt.addEventListener('contextmenu',e=>e.preventDefault());
 // собой, комментируют — сервер не понимает, что гость закончил, и робот либо
 // молчит минутами, либо потом отвечает на самую первую фразу (боевой опыт
 // 2-4.08).
-// ВАЖНО (проверено по исходникам SDK 10.08): setMicMuted НЕ закрывает реплику —
-// он лишь перестаёт слать звук, а ход всё равно ждёт своего таймера. Форсировать
-// ответ умеет ТОЛЬКО текстовая реплика: sendUserMessage запускает тот же путь,
-// что и живая речь. Поэтому жмём сразу, без ожидания тишины.
+// Форсировать ответ умеет только текстовая реплика (sendUserMessage). Но она
+// встаёт В ОЧЕРЕДЬ за незакрытой речью гостя — и сервер закрывает эту речь,
+// только когда в микрофон перестают говорить. Отсюда главное правило 24.09:
+// микрофон закрыт, пока робот не заговорит (см. ниже).
 // Если вокруг шумели и разобрать было нечего, робот раньше просто молчал —
 // оператор жал кнопку второй и третий раз и решал, что она мёртвая (26.08).
 // Поэтому у команды есть запасной выход: не понял — скажи короткую фразу и
 // задай короткий вопрос, но заговори обязательно.
-const ANSWER_CUE = ROBOT.answerCue;
 let answerBusy=false;
 // 18.09: переделано после боевой жалобы. Было: уходила ДЛИННАЯ команда-инструкция
 // ⟦REGIE⟧ «ответь сейчас; если ничего не слышал — скажи, что шумно, и попроси
@@ -1259,46 +1255,41 @@ let answerBusy=false;
 // 18.09, прогон: голое «Das war's.» без расслышанной реплики робот принял за
 // ПРОЩАНИЕ гостя и начал прощаться сам. Поэтому сигнал — служебный токен без
 // собственного смысла, значение ему задаёт бриф (§10).
-const TOCHKA = '\u27e6REGIE\u27e7 Der Gast hat zu Ende gesprochen — antworte JETZT auf das, was er gesagt hat.';
+// 24.09 — третья версия, после Вены (там 158 нажатий, из них 107 «вслепую»).
+// Проверено на живом мозге через WebRTC с записью «вопрос гостя + болтовня рядом»:
+//   не жать — ответ через 41 с; старая кнопка (микрофон на 0,4 с) — через 33 с;
+//   микрофон закрыт ДО НАЧАЛА ОТВЕТА — через 7 с и ровно на вопрос гостя.
+// Поэтому: одна команда, микрофон закрыт, пока робот не заговорит (не дольше
+// 15 с), никаких повторов — повтор в Вене только копил очередь (51 раз, 0 толку).
+// Текст команды — ROBOT.answerCue: ответить на последние слова гостя, а если
+// гость ничего не сказал — не выдумывать, а коротко переспросить.
+const TOCHKA = ROBOT.answerCue;
+let otvechajTimer=null, otvechajBylo='';
+function otpustitOtvechaj(prichina){
+  if(!otvechajDerzhit) return;
+  otvechajDerzhit=false; clearTimeout(otvechajTimer);
+  const b=$('answerNow');
+  if(b){ b.innerHTML=otvechajBylo||b.innerHTML; b.disabled=false; }
+  answerBusy=false;
+  if(prichina){ log(prichina); if(b) otklik(b,'не ответил — жми ещё',false); }
+  applyMic();
+}
 async function answerNow(){
-  if(answerBusy) return;
-  const b=$('answerNow'), was=b.innerHTML;
+  if(answerBusy) return;                 // уже ждём ответ — второе нажатие ничего не добавит
+  const b=$('answerNow');
   answerBusy=true; vibrate([50,40,50]);
-  b.innerHTML='⏳ отвечает…'; b.disabled=true;
-  const byloOtkryto = micWanted;
-  try{
-    if(!await ensureConn()){ log('⚠️ ОТВЕЧАЙ не ушло — нет связи'); otklik(b,'нет связи',false); flash('⚠️ Нет связи — сначала «Подключиться»'); return; }
-    if(quiet) setQuiet(false);
-    if(byloOtkryto){ micWanted=false; applyMic(); await new Promise(r=>setTimeout(r,400)); }
-    expectReply();
-    try{ conv.sendUserMessage(TOCHKA); log('⏭ ОТВЕЧАЙ — команда ушла, отвечает на сказанное'); }
-    catch(e){ log('⚠️ Не ушло: '+(e?.message||e)); }
-    // Если сервер держал ход гостя открытым, первая команда встаёт в очередь
-    // и робот молчит. Ждём 3 секунды и посылаем ещё раз — ОДИН раз, микрофон
-    // при этом не трогаем (дёрганье микрофона и было причиной «он завис»).
-    for(let i=0;i<12 && !agentSpeaking && conv;i++) await new Promise(r=>setTimeout(r,250));
-    if(conv && !agentSpeaking){
-      b.innerHTML='⏳ ещё раз…';
-      try{ conv.sendUserMessage(TOCHKA); log('⏭ ОТВЕЧАЙ — повтор: робот не начал за 3 с'); }catch{}
-    }
-  } finally {
-    // микрофон возвращается ВСЕГДА — даже если что-то упало по дороге
-    if(byloOtkryto && conv){ micWanted=true; applyMic(); }
-    b.innerHTML=was; b.disabled=false; answerBusy=false;
-    otklik(b, conv?'ушло':'нет связи', !!conv);
-  }
+  if(!await ensureConn()){ answerBusy=false; log('⚠️ ОТВЕЧАЙ не ушло — нет связи'); otklik(b,'нет связи',false); flash('⚠️ Нет связи — сначала «Подключиться»'); return; }
+  if(quiet) setQuiet(false);
+  otvechajBylo=b.innerHTML;
+  b.innerHTML='⏳ СЛУШАНИЕ ЗАКРЫТО<br><small>отвечает на последние слова гостя…</small>'; b.disabled=true;
+  otvechajDerzhit=true; applyMic();      // микрофон закрыт, пока робот не заговорит
+  expectReply();
+  try{ conv.sendUserMessage(TOCHKA); log('⏭ ОТВЕЧАЙ — микрофон закрыт до ответа'); }
+  catch(e){ log('⚠️ Не ушло: '+(e?.message||e)); }
+  clearTimeout(otvechajTimer);
+  otvechajTimer=setTimeout(()=>otpustitOtvechaj('⚠️ ОТВЕЧАЙ: робот не заговорил за 15 с — слух возвращён'), OTVECHAJ_MAX_MS);
 }
 $('answerNow').onclick=answerNow;
-// переключатель автоответа: видно, в каком он состоянии, и переживает перезагрузку
-function avtoUI(){
-  const b=$('avtoBtn'); if(!b) return;
-  b.innerHTML = avtoOtvet ? '🤖 САМ ОТВЕЧАЕТ через 2,8 с тишины · нажми, чтобы выключить'
-                          : '✋ ОТВЕЧАЕТ ТОЛЬКО ПО КНОПКЕ · нажми, чтобы включить автомат';
-  b.style.background = avtoOtvet ? '#1e8449' : '#2c3e50';
-}
-$('avtoBtn').onclick=()=>{ avtoOtvet=!avtoOtvet; store('avtoOtvet', avtoOtvet?'1':'0'); avtoUI(); vibrate(40);
-  log(avtoOtvet ? '🤖 Автоответ включён' : '✋ Автоответ выключен — только кнопкой'); };
-avtoUI();
 // «⏭ ОТВЕЧАЙ» — та же механика, но видимой кнопкой в быстрых действиях.
 // Нужна, когда вокруг шум и робот не понимает, что гость договорил (26.08).
 const knopkaOtvechaj = $('qaAnswer');
@@ -1332,16 +1323,24 @@ $('quietBtn').onclick=()=>setQuiet(!quiet);
 // клавиши не слушает. Возвращать только после его прямого «да».
 // Код лежит в backups/2026-08-10-ПЕРЕД-РАЗБОРОМ-ИВЕНТОВ/klaviatura-otlozheno.js
 
+// 24.09: раньше уходило тихой заметкой (sendContextualUpdate) — ElevenLabs по
+// такой заметке НИКОГДА не заговаривает сам, она лишь ложится в память до
+// следующей реплики гостя. В Вене Макс писал контекст и ждал реакции, а её
+// не было — «не понимал, что я пишу». Теперь текст уходит командой ⟦REGIE⟧,
+// ровно как русская команда голосом: робот выполняет сразу. После обрыва связи
+// он возвращается уже тихой заметкой (hiddenLog), чтобы сцена не играла дважды.
 $('sendCtx').onclick=async()=>{
   vibrate(45);
   const t=$('ctxInput').value.trim();
-  if(!t){ flash('⚠️ Сначала впиши контекст в поле'); return; }
+  if(!t){ flash('⚠️ Сначала впиши задание в поле'); return; }
   if(!await ensureConn()) return;
   try{
-    conv.sendContextualUpdate(t+' '+uhrzeit());
+    expectReply();
+    conv.sendUserMessage(REGIE+' '+ROBOT.ctxCue+' '+t);
     hiddenLog.push(t); if(hiddenLog.length>HIDDEN_MAX) hiddenLog.shift();
-    log('📩 Контекст: '+t); $('ctxInput').value=''; otklik($('sendCtx'),'контекст ушёл');
-  }catch(e){ log('⚠️ Контекст не ушёл: '+(e?.message||e)); }
+    log('📩 Задание: '+t); $('ctxInput').value='';
+    otklik($('sendCtx'), agentSpeaking ? 'ушло — выполнит, когда договорит' : 'ушло');
+  }catch(e){ log('⚠️ Задание не ушло: '+(e?.message||e)); }
 };
 // Для прямого эфира отдельной кнопки НЕТ и не нужно (решение Макса 15.08:
 // пульт рабочий, новых функций перед эфиром не добавляем). Комментарий зрителя
@@ -1372,7 +1371,7 @@ $('gastBtn').onclick=async()=>{
   const t=$('gastInput').value.trim();
   if(!t){ flash('⚠️ Сначала впиши, что сказал гость'); return; }
   if(!await ensureConn()){ otklik($('gastBtn'),'нет связи',false); return; }
-  gast(t); $('gastInput').value=''; otklik($('gastBtn'),'ушло');
+  gast(t); $('gastInput').value=''; otklik($('gastBtn'), agentSpeaking ? 'ушло — ответит, когда договорит' : 'ушло');
 };
 // Enter отправляет (Shift+Enter — перенос строки, как в обычном чате)
 $('gastInput').addEventListener('keydown', e=>{
