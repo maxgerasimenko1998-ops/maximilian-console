@@ -138,6 +138,7 @@
     <!-- 18.09: оператор должен ВИДЕТЬ, что робот расслышал, до того как жать ОТВЕЧАЙ.
          Раньше это уходило только в мелкий лог внизу, и в зале было не разобрать,
          молчит он потому что не услышал, или потому что ход гостя не закрылся. -->
+    <button id="avtoBtn" style="height:46px;background:#2c3e50;font-size:14px"></button>
     <div id="lastHeard" style="font-size:14px;line-height:1.35;color:#cfd6df;background:#20242c;
          border-radius:10px;padding:9px 11px;min-height:38px">услышал: <b style="color:#8a8f98">— пока ничего —</b></div>
     <button id="answerNow" style="height:64px;background:#b8860b;touch-action:manipulation">⏭ ОТВЕЧАЙ<br><small>гость договорил — конец слушания, отвечай сейчас</small></button>
@@ -308,7 +309,7 @@ const ROBOT = {
   ns: 'max:',                                    // префикс памяти браузера — СВОЙ у каждого пульта (домен GitHub Pages общий)
   agent: 'agent_8801m320fpf0f20t8qr66h9s0hy7',  // мозг Максимилиана (deploy_robot.py --robot maximilian)
   title: 'Максимилиан · Вена',
-  version: '22.09.2026 голос Rupert',
+  version: '24.09.2026 автоответ',
   dayCtx: 'Montag, 21. September 2026, Wien, Innenstadt. Du gehst zu Fuß unter den Leuten, dein erster Gang seit langer Zeit. Kein Gastgeber, kein Auftrag — du siehst dir an, was aus dem Jahrhundert geworden ist.',
 
   // Режимы вечера — стоячий контекст: уходит роботу при подключении и по нажатию
@@ -354,6 +355,13 @@ const $ = id => document.getElementById(id);
 // ГРОМКОСТЬ. conv.setVolume выше единицы не поднимается — это обычная громкость
 // аудио-элемента. Тихий голос на улице не слышно, поэтому выход робота
 // пропускается через усилитель WebAudio. 21.09: голос Jantosch «очень тихий».
+// АВТОМАТИЧЕСКИЙ ОТВЕЧАЙ. 21.09 в Вене оператор нажал ОТВЕЧАЙ 158 раз из 435
+// входящих — каждый третий ответ вытаскивался руками, а 43 раза робот молчал
+// дольше пятнадцати секунд. Пульт слышит уровень с микрофона: если гость
+// говорил и потом стало тихо, а робот не начал — жмём ОТВЕЧАЙ сами.
+let bylaRech = false;                 // с момента последнего ответа робота кто-то говорил
+let avtoOtvet = (LS.get('avtoOtvet') ?? '1') === '1';
+const TISHINA_TAKTOV = 28;            // тактов по 100 мс = 2,8 с тишины
 let _gain=null, _ac=null, _ist=null;
 const USILENIE = 3.0;               // во сколько раз громче единицы
 function usilitZvuk(){
@@ -627,6 +635,15 @@ function levelStart(){
       txt.textContent = levelSilent>50 ? '⚠️ вход молчит — не тот микрофон?' : 'тихо';
     } else { levelSilent=0; txt.textContent = pct>70 ? 'громко' : 'слышу';
       armToggleTimeout();   // говорят — микрофон не гасим
+    }
+    // ── автоматический ОТВЕЧАЙ ────────────────────────────────────────────
+    // Условия все сразу: включено, микрофон открыт, робот молчит, мы не ждём
+    // уже посланного ответа, кто-то говорил — и вот уже 2,8 секунды тихо.
+    if(avtoOtvet && open && !agentSpeaking && !boardPlaying && !awaitingReply
+       && bylaRech && levelSilent >= TISHINA_TAKTOV && conv && !answerBusy){
+      bylaRech=false; levelSilent=0;
+      log('🤖 Тихо 2,8 с после речи — жму ОТВЕЧАЙ сам');
+      answerNow();
     }
   }, 100);
 }
@@ -1036,7 +1053,9 @@ async function doConnect(isReconnect){
       },
       onMessage:({source,message})=>{
         log((source==='ai'?'🤖 ':'🧑 ')+message);
+        if(source==='ai') bylaRech=false;
         if(source!=='ai'){
+          bylaRech=true;
           const t=(message||'').trim();
           // команду пульта (служебный токен) в «услышал» не показываем — это не гость
           if(t && !t.startsWith('\u27e6')){
@@ -1270,6 +1289,16 @@ async function answerNow(){
   }
 }
 $('answerNow').onclick=answerNow;
+// переключатель автоответа: видно, в каком он состоянии, и переживает перезагрузку
+function avtoUI(){
+  const b=$('avtoBtn'); if(!b) return;
+  b.innerHTML = avtoOtvet ? '🤖 САМ ОТВЕЧАЕТ через 2,8 с тишины · нажми, чтобы выключить'
+                          : '✋ ОТВЕЧАЕТ ТОЛЬКО ПО КНОПКЕ · нажми, чтобы включить автомат';
+  b.style.background = avtoOtvet ? '#1e8449' : '#2c3e50';
+}
+$('avtoBtn').onclick=()=>{ avtoOtvet=!avtoOtvet; store('avtoOtvet', avtoOtvet?'1':'0'); avtoUI(); vibrate(40);
+  log(avtoOtvet ? '🤖 Автоответ включён' : '✋ Автоответ выключен — только кнопкой'); };
+avtoUI();
 // «⏭ ОТВЕЧАЙ» — та же механика, но видимой кнопкой в быстрых действиях.
 // Нужна, когда вокруг шум и робот не понимает, что гость договорил (26.08).
 const knopkaOtvechaj = $('qaAnswer');
