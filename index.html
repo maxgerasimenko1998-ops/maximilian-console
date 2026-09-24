@@ -132,17 +132,17 @@
   <div id="live" class="hidden" style="display:none;flex-direction:column;gap:12px">
     <button id="ptt">🎤 ГОВОРИТЬ<br><small>микрофон выключен</small></button>
     <div id="micModeRow" style="display:flex;gap:8px">
-      <button id="mmOpen" style="flex:1;height:60px;background:#1e8449">🙌 СВОБОДНЫЕ РУКИ<br><small>слушает сам, всегда</small></button>
-      <button id="mmToggle" style="flex:1;height:60px;background:#555">👆 ПО КНОПКЕ<br><small>слушает только после «ГОВОРИТЬ»</small></button>
+      <button id="mmOpen" style="flex:1;min-height:60px;padding:8px 6px;background:#1e8449">🙌 СВОБОДНЫЕ РУКИ<br><small>слушает сам, всегда</small></button>
+      <button id="mmToggle" style="flex:1;min-height:60px;padding:8px 6px;background:#555">👆 ПО КНОПКЕ<br><small>слушает только после «ГОВОРИТЬ»</small></button>
     </div>
     <!-- 18.09: оператор должен ВИДЕТЬ, что робот расслышал, до того как жать ОТВЕЧАЙ.
          Раньше это уходило только в мелкий лог внизу, и в зале было не разобрать,
          молчит он потому что не услышал, или потому что ход гостя не закрылся. -->
     <div id="lastHeard" style="font-size:14px;line-height:1.35;color:#cfd6df;background:#20242c;
          border-radius:10px;padding:9px 11px;min-height:38px">услышал: <b style="color:#8a8f98">— пока ничего —</b></div>
-    <button id="answerNow" style="height:64px;background:#b8860b;touch-action:manipulation">⏭ ОТВЕЧАЙ<br><small>гость договорил — конец слушания, отвечай сейчас</small></button>
-    <button id="stopTalk" style="background:#8e2020;height:64px;touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none">✋ ХВАТИТ<br><small>замолчи сейчас · связь жива, нажми ещё раз — снова слушает</small></button>
-    <button id="hushBtn2" style="background:#5a1616;height:56px;touch-action:manipulation">⏹ ПОЛНЫЙ СТОП<br><small>связь разорвана, деньги не идут · дальше — «Подключиться»</small></button>
+    <button id="answerNow" style="min-height:64px;background:#b8860b;touch-action:manipulation">⏭ ОТВЕЧАЙ<br><small>ответит на последние слова гостя</small></button>
+    <button id="stopTalk" style="background:#8e2020;min-height:64px;touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none">✋ ХВАТИТ<br><small>замолчи сейчас · связь жива, нажми ещё раз — снова слушает</small></button>
+    <button id="hushBtn2" style="background:#5a1616;min-height:56px;touch-action:manipulation">⏹ ПОЛНЫЙ СТОП<br><small>связь разорвана, деньги не идут · дальше — «Подключиться»</small></button>
 
     <!-- РЕЖИССЁР: в уличных пультах эту карточку прятали — на ходу печатать
          некогда, режиссировали голосом. BoS-Bot стоит на сцене стационарно —
@@ -208,8 +208,9 @@
         в «ЗАДАНИЕ / КОНТЕКСТ» ниже, выполнит сразу. Начало разговора — <b>🗣 Заговорить первым</b>.
         Гость сказал, а робот молчит — <b>⏭ ОТВЕЧАЙ</b>. Микрофон не расслышал — <b>👤 ГОСТЬ СКАЗАЛ</b>.
       </div>
-      <div class="quick" style="margin-bottom:10px">
-      <!-- 18.09: кнопки режимов убраны — контекст даётся голосом -->
+      <!-- 18.09: кнопки режимов убраны — контекст даётся голосом.
+           25.09: вместе с ними убран и их пустой контейнер — он оставался незакрытым,
+           и все карточки ниже (задание, «гость сказал», журнал) вкладывались в эту. -->
 
       <div class="quick">
         <button id="qaHello">🗣 Заговорить первым</button>
